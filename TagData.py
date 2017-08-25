@@ -25,7 +25,7 @@ class Ui_TagData(Ui_UiBaseWindow):
         self.FrameHeight = 0
         self.Scene = MyGraphicsScene()   
         self.EffectRect = [140, 200, 0, 0]
-        self.SavePath = "..\\Data\\BP2017\\"
+        self.SavePath = "Data\\BP2017\\"
         self.SaveName = ""
         self.SaveSouse = ""
         self.ImgInfo = ""
@@ -44,7 +44,7 @@ class Ui_TagData(Ui_UiBaseWindow):
         self.CloseFile()
         VideoName, filetype = QFileDialog.getOpenFileName(QWidget(),
                                                     "Open Video ",
-                                                    "..\\Data\\",
+                                                    "Data\\",
                                                     "Video Files (*.avi);;All Files (*)") 
         _,tmp = os.path.split(VideoName)
         self.SaveName, self.SaveSouse, _ = tmp.split('_',2)
