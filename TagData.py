@@ -18,8 +18,9 @@ class Ui_TagData(Ui_UiBaseWindow):
         self.Init()
         
     def Init(self):
-        self.VideoCap = cv2.VideoCapture("")
-        _,self.CurrentFrame = self.VideoCap.read()
+        self.VideoCap = None
+        self.PicList = None
+        self.CurrentFrame = None
         self.FrameIdx = 0
         self.FrameWidth = 0
         self.FrameHeight = 0
@@ -27,74 +28,135 @@ class Ui_TagData(Ui_UiBaseWindow):
         self.EffectRect = [140, 200, 0, 0]
         self.SavePath = "Data\\BP2017\\"
         self.SaveName = ""
-        self.SaveSouse = ""
-        self.ImgInfo = ""
+        self.SavePose = ""
+        self.MsgInfo = ""
         self.TagInfo = ""
         
     def setupUi(self,tagWindow):
         super().setupUi(tagWindow)
         self.FrameView.setScene(self.Scene)
-        self.OpenFileButton.clicked.connect(self.OpenFile)
+        self.OpenVedioButton.clicked.connect(self.OpenVedio)
+        self.OpenPictureButton.clicked.connect(self.OpenPicture)
         self.CloseFileButton.clicked.connect(self.CloseFile)
         self.SaveButton.clicked.connect(self.SaveCurrent)
         self.NextButton.clicked.connect(self.LoadNext)
         self.NextButton.setAutoRepeat(True)    
+        self.PrevButton.clicked.connect(self.LoadPrev)
+        self.PrevButton.setAutoRepeat(True)  
           
-    def OpenFile(self):
+    def OpenVedio(self):
         self.CloseFile()
-        VideoName, filetype = QFileDialog.getOpenFileName(QWidget(),
-                                                    "Open Video ",
+        fileName, _ = QFileDialog.getOpenFileName(QWidget(),
+                                                    "Open Vedio",
                                                     "Data\\",
-                                                    "Video Files (*.avi);;All Files (*)") 
-        _,tmp = os.path.split(VideoName)
-        self.SaveName, self.SaveSouse, _ = tmp.split('_',2)
-        self.VideoCap = cv2.VideoCapture(VideoName)
+                                                    "Vedio (*.avi);;All Files (*)") 
+        path,name = os.path.split(fileName)
+        
+        self.SaveName = name.split('_')[0]
+        self.SavePose = name.split('_')[2] + "_" +name.split('_')[3]
+        if self.SavePose=="BP_L":
+            self.SaveName += "0"
+        if self.SavePose=="BP_R":    
+            self.SaveName += "1"
+        if len(self.SaveName) ==3:
+            self.SaveName = "0" + self.SaveName 
+        self.VideoCap = cv2.VideoCapture(fileName)
         rval, self.CurrentFrame = self.VideoCap.read()
-        self.FrameIdx = 0
         if rval:
             self.FrameWidth = self.CurrentFrame.shape[1]
             self.FrameHeight = self.CurrentFrame.shape[0]
-            self.FrameIdx  += 1
             self.ShowGraph()
             
             sizeStr = self.SizeComboBox.currentText()
             self.EffectRect[2], self.EffectRect[3] = map(int, sizeStr.split('x')) 
-            self.Scene.EffectReg.setRect(self.EffectRect[0], self.EffectRect[1], self.EffectRect[2], self.EffectRect[3])           
+            self.Scene.EffectReg.setRect(self.EffectRect[0], self.EffectRect[1], self.EffectRect[2], self.EffectRect[3]) 
+        else:
+            self.MsgInfo.append("-> Open error!")
             
+           
+    def OpenPicture(self):
+        self.CloseFile()
+        self.PicList, _ = QFileDialog.getOpenFileNames(QWidget(),
+                                                    "Open Picture",
+                                                    "Data\\",
+                                                    "Picture (*.jpg;*.bmp;*.png;*.tiff);;All Files (*)") 
+        path,name = os.path.split(self.PicList[self.FrameIdx])
+        self.SaveName = path.split('/')[-3].split('_')[0]
+        self.SavePose = path.split('/')[-2]
+        if self.SavePose=="BP_L":
+            self.SaveName += "0"
+        if self.SavePose=="BP_R":    
+            self.SaveName += "1"
+        if len(self.SaveName) ==3:
+            self.SaveName = "0" + self.SaveName 
+        self.CurrentFrame = cv2.imread(self.PicList[self.FrameIdx])
+        self.FrameWidth = self.CurrentFrame.shape[1]
+        self.FrameHeight = self.CurrentFrame.shape[0]
+        self.ShowGraph()
+        
+        sizeStr = self.SizeComboBox.currentText()
+        self.EffectRect[2], self.EffectRect[3] = map(int, sizeStr.split('x')) 
+        self.Scene.EffectReg.setRect(self.EffectRect[0], self.EffectRect[1], self.EffectRect[2], self.EffectRect[3])  
+        
+        
     def CloseFile(self):
         if self.VideoCap:
             self.VideoCap.release()
-            self.ImgInfo.clear()
-            self.TagInfo.clear()
-            self.Scene.pixmap.setPixmap(QtGui.QPixmap())  
-            self.Scene.EffectReg.setRect(0, 0, 0, 0)
-            self.Scene.roi.setRect(0, 0, 0, 0)
-            self.Scene.roiCoord = [0, 0, 0, 0]
+            self.VideoCap = None
+        self.PicList = None
+        self.CurrentFrame = None
+        self.FrameIdx = 0
+        self.FrameWidth = 0
+        self.FrameHeight = 0
+        self.MsgInfo.clear()
+        self.TagInfo.clear()
+        self.Scene.pixmap.setPixmap(QtGui.QPixmap())  
+        self.Scene.EffectReg.setRect(0, 0, 0, 0)
+        self.Scene.roi.setRect(0, 0, 0, 0)
+        self.Scene.roiCoord = [0, 0, 0, 0]
             
-    def SaveCurrent(self):
-        if self.VideoCap:    
-            xmin = int(self.Scene.roiCoord[0]-self.EffectRect[0])
-            ymin = int(self.Scene.roiCoord[1]-self.EffectRect[1])
-            xmax = int(self.Scene.roiCoord[2]+xmin)
-            ymax = int(self.Scene.roiCoord[3]+ymin)
-            if xmin>=0 and ymin>=0 and xmax<=self.EffectRect[2] and ymax<=self.EffectRect[3]:
-                name_str = self.SaveName +("%03d" % self.FrameIdx)
-                crop_img = self.CurrentFrame[self.EffectRect[1]:self.EffectRect[1]+self.EffectRect[3], self.EffectRect[0]:self.EffectRect[0]+self.EffectRect[2]]
-                cv2.imwrite(self.SavePath + "JPEGImages\\" + name_str + ".jpg", crop_img)
-                labelFile = PascalVocWriter("BP2017", name_str + ".jpg", (self.EffectRect[2], self.EffectRect[3], 3), databaseSrc=self.SaveSouse)
-                labelFile.addBndBox(xmin, ymin, xmax, ymax, self.ClassComboBox.currentText(), False)
-                labelFile.save(targetFile = self.SavePath + "Annotations\\" + name_str + ".xml")          
-                self.ImgInfo.append(name_str + ".jpg")
-                self.TagInfo.append(name_str + ".xml")             
+    def SaveCurrent(self):   
+        xmin = int(self.Scene.roiCoord[0]-self.EffectRect[0])
+        ymin = int(self.Scene.roiCoord[1]-self.EffectRect[1])
+        xmax = int(self.Scene.roiCoord[2]+xmin)
+        ymax = int(self.Scene.roiCoord[3]+ymin)
+        if xmin>=0 and ymin>=0 and xmax<=self.EffectRect[2] and ymax<=self.EffectRect[3]:
+            name_str = self.SaveName +("%03d" % self.FrameIdx)
+            crop_img = self.CurrentFrame[self.EffectRect[1]:self.EffectRect[1]+self.EffectRect[3], self.EffectRect[0]:self.EffectRect[0]+self.EffectRect[2]]
+            cv2.imwrite(self.SavePath + "JPEGImages\\" + name_str + ".jpg", crop_img)
+            labelFile = PascalVocWriter("BP2017", name_str + ".jpg", (self.EffectRect[2], self.EffectRect[3], 3))
+            labelFile.addBndBox(xmin, ymin, xmax, ymax, self.ClassComboBox.currentText(), self.SavePose, False)
+            labelFile.save(targetFile = self.SavePath + "Annotations\\" + name_str + ".xml")          
+            self.TagInfo.append(name_str) 
+        else:
+            self.MsgInfo.append("-> Out of the effect region!")
         
     def LoadNext(self):
-        rval, self.CurrentFrame = self.VideoCap.read()
-        if rval:
-            self.FrameIdx  += 1
-            self.ShowGraph()
+        if self.VideoCap:
+            rval, self.CurrentFrame = self.VideoCap.read()
+            if rval:
+                self.FrameIdx  += 1
+                self.ShowGraph()
+            else:
+                self.MsgInfo.append("-> Reach the last frame in the vedio!")
         else:
-            self.CloseFile()
-            
+            if self.FrameIdx < len(self.PicList)-1:
+                self.FrameIdx += 1
+                self.CurrentFrame = cv2.imread(self.PicList[self.FrameIdx])
+                self.ShowGraph()
+            else:
+                self.MsgInfo.append("-> Reach the last picture in the list!")
+                
+    def LoadPrev(self):
+        if self.VideoCap:
+            self.MsgInfo.append("-> Doesn't support previous operation in vedio mode!") 
+        else:
+            if self.FrameIdx > 0:
+                self.FrameIdx -= 1
+                self.CurrentFrame = cv2.imread(self.PicList[self.FrameIdx])
+                self.ShowGraph()
+            else:
+                self.MsgInfo.append("-> Reach the first picture in the list!")        
 
     def ShowGraph(self):
             self.CurrentFrame = cv2.cvtColor(self.CurrentFrame, cv2.COLOR_BGR2RGB)
